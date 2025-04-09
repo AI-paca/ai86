@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Кружок за курсором (SVG)</title>
+    <title>Размытые Гравитационные Волны (SVG)</title>
     <style>
         /* Убираем отступы и прокрутку */
         html, body {
@@ -23,25 +23,104 @@
             height: 100%;
             pointer-events: none; /* Позволяет кликать "сквозь" SVG */
         }
+
+        /* Стиль для группы волн с фильтром */
+        #waveGroup {
+             filter: url(#blurFilter); /* Применяем фильтр */
+        }
     </style>
 </head>
 <body>
-    <!-- SVG контейнер -->
     <svg id="cursorSvg">
-        <!-- Векторный круг -->
+        <!-- Определения фильтров -->
+        <defs>
+            <filter id="blurFilter">
+                <!-- stdDeviation - сила размытия, можно настроить -->
+                <feGaussianBlur in="SourceGraphic" stdDeviation="5" />
+            </filter>
+        </defs>
+
+        <!-- Группа для волн, к которой применяется фильтр -->
+        <g id="waveGroup">
+            <!-- Волны будут добавляться сюда -->
+        </g>
+
+        <!-- Массивный объект (курсор) - рисуется поверх размытых волн -->
         <circle id="svgFollower" cx="0" cy="0" r="5" fill="#fff" />
-        <!-- cx, cy - координаты центра, r - радиус, fill - цвет заливки -->
     </svg>
 
     <script>
-        const svgCircle = document.getElementById('svgFollower');
+        const svgContainer = document.getElementById('cursorSvg');
+        const svgFollower = document.getElementById('svgFollower');
+        const waveGroup = document.getElementById('waveGroup'); // Получаем группу для волн
 
-        // Обновляем атрибуты cx и cy круга при движении мыши
+        let lastMouseX = window.innerWidth / 2;
+        let lastMouseY = window.innerHeight / 2;
+        let waves = [];
+
+        // --- Параметры Гравитационных Волн ---
+        const WAVE_SPEED = 90;
+        const MAX_STROKE_WIDTH = 6; // Можно чуть толще, т.к. размытие съедает толщину
+        const WIDTH_DECAY_EXP = 0.5;
+        const WAVE_INTERVAL = 20;    // Можно чуть реже, размытие сгладит
+        const WAVE_COLOR = '#444';   // Можно чуть светлее, размытие затемняет
+        const MAX_WAVE_RADIUS = Math.max(window.innerWidth, window.innerHeight) * 0.5; // Можно снова увеличить радиус
+        const MIN_STROKE_WIDTH = 0.5; // Порог для размытых волн можно поднять
+        const INITIAL_OPACITY = 0.4; // Уменьшена начальная прозрачность
+        // ------------------------------------
+
         document.addEventListener('mousemove', (event) => {
-            // Устанавливаем координаты центра круга равными координатам мыши
-            svgCircle.setAttribute('cx', event.clientX);
-            svgCircle.setAttribute('cy', event.clientY);
+            lastMouseX = event.clientX;
+            lastMouseY = event.clientY;
+            svgFollower.setAttribute('cx', lastMouseX);
+            svgFollower.setAttribute('cy', lastMouseY);
         });
+
+        function createWave() {
+            const wave = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            wave.setAttribute('cx', lastMouseX);
+            wave.setAttribute('cy', lastMouseY);
+            wave.setAttribute('r', 1);
+            wave.setAttribute('fill', 'none');
+            wave.setAttribute('stroke', WAVE_COLOR);
+            wave.setAttribute('stroke-width', MAX_STROKE_WIDTH);
+            wave.setAttribute('stroke-opacity', INITIAL_OPACITY);
+            wave.creationTime = performance.now();
+
+            // Добавляем волну в группу <g>, к которой применен фильтр
+            waveGroup.appendChild(wave);
+            waves.push(wave);
+        }
+
+        function animateWaves(currentTime) {
+            for (let i = waves.length - 1; i >= 0; i--) {
+                const wave = waves[i];
+                const ageSeconds = (currentTime - wave.creationTime) / 1000;
+                const radius = ageSeconds * WAVE_SPEED;
+
+                if (radius > MAX_WAVE_RADIUS) {
+                    wave.remove();
+                    waves.splice(i, 1);
+                    continue;
+                }
+
+                const strokeWidth = Math.max(MIN_STROKE_WIDTH, MAX_STROKE_WIDTH / Math.pow(1 + radius, WIDTH_DECAY_EXP));
+                const opacity = Math.max(0, INITIAL_OPACITY * Math.pow(1 - radius / MAX_WAVE_RADIUS, 1.5)); // Можно линейное или степенное затухание
+
+                if (strokeWidth <= MIN_STROKE_WIDTH || opacity <= 0.01) {
+                    wave.remove();
+                    waves.splice(i, 1);
+                } else {
+                    wave.setAttribute('r', radius);
+                    wave.setAttribute('stroke-width', strokeWidth);
+                    wave.setAttribute('stroke-opacity', opacity);
+                }
+            }
+            requestAnimationFrame(animateWaves);
+        }
+
+        setInterval(createWave, WAVE_INTERVAL);
+        requestAnimationFrame(animateWaves);
     </script>
 </body>
 </html>
