@@ -15,7 +15,9 @@ jobs:
       - name: Install Drawio headless
         run: |
           sudo apt update
-          sudo apt install -y xvfb drawio
+          sudo apt install -y xvfb
+          sudo snap install drawio-desktop
+          sudo ln -s /snap/bin/drawio-desktop /usr/local/bin/drawio
 
       - name: Get modified drawio file
         id: drawio
@@ -33,7 +35,7 @@ jobs:
       - name: Export Drawio to SVG
         if: steps.drawio.outputs.drawio_file != 'none'
         run: |
-          xvfb-run --auto-servernum drawio --headless --export --format svg --output ${{ steps.drawio.outputs.svg_file }} ${{ steps.drawio.outputs.drawio_file }}
+          xvfb-run --auto-servernum drawio-desktop --headless --export --format svg --output ${{ steps.drawio.outputs.svg_file }} ${{ steps.drawio.outputs.drawio_file }}
           ls -la ${{ steps.drawio.outputs.svg_file }}
 
       - name: Update README.md
