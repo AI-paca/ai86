@@ -21,7 +21,7 @@ jobs:
       - name: Get and process modified drawio files
         id: process_drawio
         run: |
-          MODIFIED_FILES="${{ github.event.head_commit.modified }}"
+          MODIFIED_FILES=$(echo '${{ toJSON(github.event.commits) }}' | jq -r '.[].modified[]')
           for DRAWIO_FILE in $MODIFIED_FILES; do
             if [[ "$DRAWIO_FILE" == *.drawio ]]; then
               SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
