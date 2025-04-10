@@ -1,4 +1,5 @@
 name: Update SVG from Drawio
+
 on:
   push:
     branches: [main]
@@ -8,25 +9,12 @@ on:
 jobs:
   update-svg:
     runs-on: ubuntu-latest
-    services:
-      drawio:
-        image: jgraph/drawio
-        ports:
-          - 8080:8080
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Wait for drawio service
-        run: |
-          # Wait until the drawio service is ready
-          while ! curl -s http://localhost:8080 > /dev/null; do
-            echo "Waiting for drawio service..."
-            sleep 2
-          done
-          echo "Drawio service is up!"
 
       - name: Get changed files
         id: changed-files
@@ -40,13 +28,12 @@ jobs:
             SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
             echo "Processing $DRAWIO_FILE to $SVG_FILE"
 
-            # Use curl to send the file to draw.io and get the SVG
-            RESPONSE=$(curl -s -w "%{http_code}" -X POST "http://localhost:8080/convert" -F "file=@$DRAWIO_FILE" -F "format=svg" -o "$SVG_FILE")
-            HTTP_CODE=${RESPONSE: -3}
+            # Use drawio-exporter to convert the file
+            docker run --rm -v "$(pwd):/data" jgraph/drawio-export:stable \
+              --format svg --output "/data/$SVG_FILE" "/data/$DRAWIO_FILE"
 
-            if [ $HTTP_CODE -ne 200 ]; then
-              echo "Failed to convert $DRAWIO_FILE. HTTP Status: $HTTP_CODE"
-              cat "$SVG_FILE"
+            if [ $? -ne 0 ]; then
+              echo "Failed to convert $DRAWIO_FILE"
               exit 1
             fi
 
