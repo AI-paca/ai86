@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install drawio-batch
-        run: npm install -g drawio-batch
+        run: npm install -g git+https://github.com/languitar/drawio-batch.git
 
       - name: Get changed files
         id: changed-files
