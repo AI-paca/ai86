@@ -1,0 +1,51 @@
+name: Update SVG from Drawio
+on:
+  push:
+    branches: [main, master]  # Укажите ваши основные ветки
+    paths:
+      - '**.drawio'
+jobs:
+  update-svg:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18  # Требуется для работы drawio-export-cli
+
+      - name: Install drawio-export-cli
+        run: npm install -g drawio-export-cli
+
+      - name: Get modified drawio file
+        id: drawio
+        run: |
+          # Извлекаем имя измененного .drawio файла
+          DRAWIO_FILE=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '\.drawio$' | head -1)
+          echo "drawio_file=${DRAWIO_FILE}" >> $GITHUB_OUTPUT
+          echo "svg_file=${DRAWIO_FILE%.drawio}.svg" >> $GITHUB_OUTPUT
+
+      - name: Generate SVG
+        if: steps.drawio.outputs.drawio_file != ''
+        run: |
+          drawio-export --format svg ${{ steps.drawio.outputs.drawio_file }}
+
+      - name: Update README.md
+        if: steps.drawio.outputs.drawio_file != ''
+        run: |
+          # Заменяем старую SVG-ссылку на новую
+          SVG_NAME=$(basename ${{ steps.drawio.outputs.svg_file }})
+          sed -i "s|\!\[.*\](.*\.svg)|\!\[${SVG_NAME%.*}\](${SVG_NAME})|g" README.md
+
+      - name: Commit and push changes
+        if: steps.drawio.outputs.drawio_file != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ steps.drawio.outputs.svg_file }} README.md
+          git commit -m "Auto-update SVG for ${{ steps.drawio.outputs.drawio_file }}" || exit 0
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
