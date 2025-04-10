@@ -16,8 +16,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y xvfb
-          sudo snap install drawio-desktop
-          sudo ln -s /snap/bin/drawio-desktop /usr/local/bin/drawio
+          sudo snap install drawio
 
       - name: Get modified drawio file
         id: drawio
