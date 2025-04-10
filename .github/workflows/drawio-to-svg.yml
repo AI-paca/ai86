@@ -21,7 +21,7 @@ jobs:
       - name: Get modified drawio file
         id: drawio
         run: |
-          DRAWIO_FILE=$(git diff --name-only --diff-filter=AM ${{ github.event.before }} ${{ github.sha }} | grep '\.drawio$' | head -1)
+          DRAWIO_FILE=$(git diff-tree --no-commit-id --name-only -r HEAD | grep '\.drawio$' | head -1)
           echo "drawio_file=${DRAWIO_FILE:-none}" >> $GITHUB_OUTPUT
           echo "svg_file=${DRAWIO_FILE%.drawio}.svg" >> $GITHUB_OUTPUT
 
