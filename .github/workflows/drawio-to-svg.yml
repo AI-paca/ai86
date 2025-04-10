@@ -28,9 +28,9 @@ jobs:
             SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
             echo "Processing $DRAWIO_FILE to $SVG_FILE"
 
-            # Use drawio-exporter to convert the file
-            docker run --rm -v "$(pwd):/data" jgraph/drawio-export:stable \
-              --format svg --output "/data/$SVG_FILE" "/data/$DRAWIO_FILE"
+            # Use drawio to convert the file
+            docker run --rm -v "$(pwd):/data" jgraph/drawio:stable \
+              /usr/share/drawio/drawio.sh --export "/data/$DRAWIO_FILE" --format svg --output "/data/$SVG_FILE"
 
             if [ $? -ne 0 ]; then
               echo "Failed to convert $DRAWIO_FILE"
