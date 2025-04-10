@@ -28,7 +28,7 @@ jobs:
           for DRAWIO_FILE in ${{ steps.changed-files.outputs.modified_files }}; do
             SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
             echo "Processing $DRAWIO_FILE to $SVG_FILE"
-            drawio-batch -i "$DRAWIO_FILE" -o "$SVG_FILE" -f svg
+            drawio-batch -f svg -o "$SVG_FILE" "$DRAWIO_FILE"
             ls -la "$SVG_FILE"
 
             # Update README.md with the new SVG file
