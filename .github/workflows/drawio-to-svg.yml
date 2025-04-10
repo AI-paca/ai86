@@ -1,4 +1,4 @@
-name: Update SVG from Drawio
+name: Update PNG from Drawio
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
       - '**.drawio'
 
 jobs:
-  update-svg:
+  update-png:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -38,35 +38,34 @@ jobs:
         with:
           files: '**.drawio'
 
-      - name: Convert drawio to SVG
+      - name: Convert drawio to PNG
         run: |
           for DRAWIO_FILE in ${{ steps.changed-files.outputs.modified_files }}; do
-            SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
-            echo "Processing $DRAWIO_FILE to $SVG_FILE"
+            PNG_FILE="${DRAWIO_FILE%.drawio}.png"
+            echo "Processing $DRAWIO_FILE to $PNG_FILE"
 
             curl -X POST "http://localhost:8080/convert" \
               -F "file=@$DRAWIO_FILE" \
-              -F "format=svg" \
-              -o "$SVG_FILE"
+              -F "format=png"  # <--- Изменено на PNG
+              -o "$PNG_FILE"
 
-            if [ $? -ne 0 ]; then
-              echo "Failed to convert $DRAWIO_FILE"
+            # Проверяем, что файл не содержит XML ошибки
+            if grep -q "<Error>" "$PNG_FILE"; then
+              echo "Ошибка конвертации: $DRAWIO_FILE"
               exit 1
             fi
 
-            # Обновление README.md
-            SVG_NAME=$(basename "$SVG_FILE")
-            sed -i "s|!\[.*\]\(.*\.svg\)|![$SVG_NAME]|g" README.md
+            # Обновляем README.md
+            PNG_NAME=$(basename "$PNG_FILE")
+            sed -i "s|!\[.*\]\(.*\.\(svg\|png\)\)|![$PNG_NAME]($PNG_NAME)|g" README.md
           done
 
       - name: Commit and push changes
         run: |
-          # Используем стандартные настройки для GitHub Actions
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"  # Без префикса [[6]]
-          git add *.svg README.md || echo "Nothing to add"
-          git commit -m "Auto-update SVGs for modified .drawio files" || exit 0
-          # Используем GITHUB_TOKEN для аутентификации
-          git push origin HEAD:main
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add *.png README.md || echo "Nothing to add"
+          git commit -m "Auto-update PNGs for modified .drawio files" || exit 0
+          git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
