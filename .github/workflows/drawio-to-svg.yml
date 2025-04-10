@@ -14,14 +14,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y xvfb libgl1-mesa-glx libgl1-mesa-dri libxcb-xinerama0 libxcb-util1 libxcb-xrm0 libxcb-xkb1 libxcb-shape0 libxcb-randr0 libxcb-render-util0 libxcb-render0 libxcb-shm0 libxcb-xrm0 libxcb-xv0 libxcb-xkb1 libxcb-cursor0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-util1
-          sudo snap install drawio
-
-      - name: Start xvfb
-        run: Xvfb :99 -screen 0 1024x768x24 &
+      - name: Install drawio-batch
+        run: npm install -g drawio-batch
 
       - name: Get changed files
         id: changed-files
@@ -34,7 +28,7 @@ jobs:
           for DRAWIO_FILE in ${{ steps.changed-files.outputs.modified_files }}; do
             SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
             echo "Processing $DRAWIO_FILE to $SVG_FILE"
-            xvfb-run --auto-servernum --server-num=99 drawio --headless --export --format svg --output "$SVG_FILE" "$DRAWIO_FILE"
+            drawio-batch -i "$DRAWIO_FILE" -o "$SVG_FILE" -f svg
             ls -la "$SVG_FILE"
 
             # Update README.md with the new SVG file
