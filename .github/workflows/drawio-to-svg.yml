@@ -8,14 +8,16 @@ on:
 jobs:
   update-svg:
     runs-on: ubuntu-latest
+    services:
+      drawio:
+        image: jgraph/drawio
+        ports:
+          - 8080:8080
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Install drawio-batch
-        run: npm install -g git+https://github.com/languitar/drawio-batch.git
 
       - name: Get changed files
         id: changed-files
@@ -23,12 +25,15 @@ jobs:
         with:
           files: '**.drawio'
 
-      - name: Process modified drawio files
+      - name: Convert drawio to SVG
         run: |
           for DRAWIO_FILE in ${{ steps.changed-files.outputs.modified_files }}; do
             SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
             echo "Processing $DRAWIO_FILE to $SVG_FILE"
-            node /usr/local/lib/node_modules/drawio-batch/drawio-batch.js "$DRAWIO_FILE" "$SVG_FILE"
+
+            # Use curl to send the file to draw.io and get the SVG
+            curl -X POST "http://localhost:8080/convert" -F "file=@$DRAWIO_FILE" -F "format=svg" -o "$SVG_FILE"
+
             ls -la "$SVG_FILE"
 
             # Update README.md with the new SVG file
