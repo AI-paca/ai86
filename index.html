@@ -2,125 +2,629 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Размытые Гравитационные Волны (SVG)</title>
+    <title>Многослойное Взаимодействие v3 (SVG)</title>
     <style>
-        /* Убираем отступы и прокрутку */
-        html, body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            height: 100%;
-            width: 100%;
-            background-color: #000; /* Черный фон */
-            cursor: none; /* Скрываем стандартный курсор */
-        }
-        /* SVG-контейнер занимает все окно */
-        #cursorSvg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none; /* Позволяет кликать "сквозь" SVG */
+        /* Основные стили */
+        html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; width: 100%; background-color: #9370DB; cursor: none; }
+        #cursorSvg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        /* Волны */
+        #waveGroup { filter: url(#blurFilter); pointer-events: none; }
+
+        /* Массивные объекты */
+        .massive-object-visual { pointer-events: auto; }
+
+        /* Индикатор слоя */
+        #layerIndicator { position: fixed; top: 10px; left: 10px; color: white; font-family: sans-serif; font-size: 16px; z-index: 1000; pointer-events: none; text-shadow: 1px 1px 2px black; }
+
+        /* Текстовые объекты */
+        .content-object-text {
+            fill: #1e1e1e;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 24px;
+            font-weight: bold;
+            pointer-events: none;
+            text-anchor: middle;
+            dominant-baseline: central;
         }
 
-        /* Стиль для группы волн с фильтром */
-        #waveGroup {
-             filter: url(#blurFilter); /* Применяем фильтр */
+         /* Тень для курсора (слой 3) */
+        .cursor-shadow {
+             filter: url(#dropShadowFilter);
         }
+
+        /* УДАЛЯЕМ стиль для смешивания волн */
+        /* .wave-blend-effect {
+            mix-blend-mode: difference;
+        } */
+
+        /* УДАЛЯЕМ Визуальное поле искажения для курсора */
+        /* #cursorDistortionField {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.3);
+            stroke-width: 3px;
+            filter: url(#blurFilter);
+            display: none;
+            pointer-events: none;
+        } */
+
+        /* Контрольные области */
+        .control-area {
+            position: fixed;
+            /* Размеры и позиция задаются индивидуально */
+            z-index: 999;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .control-area:hover {
+            opacity: 1.0;
+        }
+        .control-area svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #startArea {
+            top: 20px; /* << Увеличен отступ сверху */
+            left: 0;   /* Вплотную к левому краю */
+            width: 20px; /* Толщина левой "рамы" */
+            height: 40px;/* Высота норы */
+        }
+        #resetArea {
+            bottom: 20px; /* << Увеличен отступ снизу */
+            right: 0;    /* Вплотную к правому краю */
+            width: 20px; /* Толщина правой "рамы" */
+            height: 40px;/* Высота двери */
+        }
+
+        /* --- Стили SVG Элементов --- */
+        #mouseHolePath {
+            fill: #1a1a1a;
+            stroke: #ccc;
+            stroke-width: 1;
+            transition: fill 0.2s ease, stroke 0.2s ease, transform 0.3s ease-in-out;
+            transform-origin: right center; /* << Ось вращения - правый край */
+        }
+        .eye {
+            fill: white;
+            animation: blink 4s infinite steps(1, end);
+            transform-origin: center center;
+        }
+        #startEyeRight {
+            animation-delay: 0.2s;
+        }
+
+        #doorPath {
+            fill: #d9534f;
+            stroke: #a94442;
+            stroke-width: 1;
+            transition: fill 0.2s ease, stroke 0.2s ease, transform 0.3s ease-in-out;
+            transform-origin: right center; /* << Ось вращения - правый край */
+        }
+         #doorHandle {
+             fill: #a94442;
+             transition: fill 0.2s ease, transform 0.3s ease-in-out;
+             transform-origin: right center; /* << Тоже от правого */
+         }
+
+        /* Hover эффекты */
+        #startArea:hover #mouseHolePath { fill: #000; }
+        #resetArea:hover #doorPath,
+        #resetArea:hover #doorHandle {
+             fill: #c9302c; /* Затемнение при наведении */
+             stroke: #8b0000; /* Для двери */
+             /* Открывается наружу (вправо) */
+             transform: perspective(50px) rotateY(60deg);
+         }
+         /* Сброс цвета ручки при уходе */
+         #resetArea #doorHandle { fill: #a94442; }
+         #resetArea:hover #doorHandle { fill: #8b0000; }
+
+        /* Анимация моргания */
+        @keyframes blink {
+            0%, 90%, 100% { transform: scaleY(1); }
+            95% { transform: scaleY(0.1); }
+        }
+
     </style>
 </head>
 <body>
+    <!-- Индикатор текущего слоя -->
+    <div id="layerIndicator">Layer: 1</div>
+
+    <!-- Контрольные области с SVG -->
+    <div id="startArea" class="control-area" title="Старт/Рестарт">
+        <svg viewBox="0 0 20 40" preserveAspectRatio="none">
+            <!-- Нора в левой "раме", уходит влево. Перспектива сходится вправо. -->
+            <!-- Смещаем нору ниже: y от 5 до 35 -->
+            
+            <!-- Стенки норы -->
+            <!-- Верхняя стенка (y от 5 до 10 внутрь) -->
+            <path fill="#333" d="M 0 5 L 5 10 L 5 30 L 0 35 Z" /> 
+            <!-- Нижняя стенка (y от 35 до 30 внутрь) -->
+            <path fill="#555" d="M 0 35 L 5 30 L 5 35 Z" /> 
+            
+            <!-- Задняя стенка норы (y от 10 до 30) -->
+            <rect id="mouseHoleBack" x="5" y="10" width="5" height="20" fill="#111"/>
+            
+            <!-- Сама дыра (на переднем плане, y от 5 до 35, центр кривой в y=20) -->
+            <path id="mouseHolePath" d="M 0 5 H 5 Q 15 5, 15 20 Q 15 35, 5 35 H 0 Z" fill="#000" stroke="none"/>
+            
+            <!-- Глаза на задней стенке (центрированы по y в новой высоте норы) -->
+            <!-- Вернем радиус побольше, т.к. нора снова стала выше -->
+            <circle id="startEyeLeft" class="eye" cx="7.5" cy="17" r="2"/>
+            <circle id="startEyeRight" class="eye" cx="7.5" cy="23" r="2"/>
+        </svg>
+    </div>
+
+    <div id="resetArea" class="control-area" title="Сброс/Пауза">
+        <svg viewBox="0 0 20 40" preserveAspectRatio="none">
+            <!-- Дверной проем в правой "раме". Перспектива сходится влево. -->
+            
+            <!-- Координаты для перспективы проема (внутренние) -->
+            <!-- Проем начинается на x=15, y=5 (верх) и y=35 (низ) -->
+            
+            <!-- Верхняя грань проема -->
+            <path fill="#333" d="M 20 0 L 15 5 L 15 0 Z" />
+            
+            <!-- Нижняя грань проема -->
+            <path fill="#555" d="M 20 40 L 15 35 L 15 40 Z" />
+            
+            <!-- Левая (дальняя) грань проема -->
+            <rect x="15" y="5" width="1" height="30" fill="#222"/>
+            
+            <!-- Сама дверь (вращается) -->
+            <!-- Широкая, с перспективой -->
+            <path id="doorPath" d="M 20 0 L 20 40 L 9 35 L 9 5 Z"/> 
+            
+            <!-- Ручка на двери (смещена левее для широкой двери) -->
+            <circle id="doorHandle" cx="11" cy="20" r="1.5"/>
+        </svg>
+    </div>
+
     <svg id="cursorSvg">
         <!-- Определения фильтров -->
         <defs>
             <filter id="blurFilter">
-                <!-- stdDeviation - сила размытия, можно настроить -->
                 <feGaussianBlur in="SourceGraphic" stdDeviation="5" />
+            </filter>
+            <filter id="dropShadowFilter" x="-50%" y="-50%" width="200%" height="200%">
+                 <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blurResult"/>
+                 <feOffset in="blurResult" dx="5" dy="5" result="offsetBlur"/>
+                 <feFlood flood-color="#000000" flood-opacity="0.6" result="flood"/>
+                 <feComposite in="flood" in2="offsetBlur" operator="in" result="shadow"/>
+                 <feMerge>
+                      <feMergeNode in="shadow"/>
+                      <feMergeNode in="SourceGraphic"/>
+                 </feMerge>
+            </filter>
+            <!-- ЗАМЕНЯЕМ ОДИН ФИЛЬТР НА ТРИ -->
+            <filter id="dispFilterWeak">
+                <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" result="turbulence"/>
+                <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="1" xChannelSelector="R" yChannelSelector="G"/>
+            </filter>
+             <filter id="dispFilterMedium">
+                <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" result="turbulence"/>
+                <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+            </filter>
+             <filter id="dispFilterStrong">
+                <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" result="turbulence"/>
+                <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="6" xChannelSelector="R" yChannelSelector="G"/>
             </filter>
         </defs>
 
-        <!-- Группа для волн, к которой применяется фильтр -->
-        <g id="waveGroup">
-            <!-- Волны будут добавляться сюда -->
-        </g>
+        <!-- Группа для волн (фон) -->
+        <g id="waveGroup"> </g>
 
-        <!-- Массивный объект (курсор) - рисуется поверх размытых волн -->
-        <circle id="svgFollower" cx="0" cy="0" r="5" fill="#fff" />
+        <!-- Статичный объект (слой 1) -->
+        <circle id="staticObjectVisual" class="massive-object-visual" cx="0" cy="0" r="7" fill="#0055cc" />
+
+         <!-- Группа для текстовых объектов (слой 2/3) -->
+        <g id="contentObjectsGroup"> </g>
+
+        <!-- Курсор (слой 1/2/3) - рендерится последним для слоя 3 -->
+        <circle id="cursorObjectVisual" class="massive-object-visual" cx="0" cy="0" r="5" fill="#fff" />
+
     </svg>
 
     <script>
         const svgContainer = document.getElementById('cursorSvg');
-        const svgFollower = document.getElementById('svgFollower');
-        const waveGroup = document.getElementById('waveGroup'); // Получаем группу для волн
+        const waveGroup = document.getElementById('waveGroup');
+        const contentObjectsGroup = document.getElementById('contentObjectsGroup');
+        const layerIndicatorElement = document.getElementById('layerIndicator');
 
-        let lastMouseX = window.innerWidth / 2;
-        let lastMouseY = window.innerHeight / 2;
-        let waves = [];
+        // --- Состояние ---
+        let currentLayer = 1;
+        const waves = [];
+        let lastTimestamp = 0;
+        let isAnimationRunning = false; // << Флаг управления анимацией
+        let animationFrameId = null; // << ID для остановки requestAnimationFrame
 
-        // --- Параметры Гравитационных Волн ---
+        // --- Константы Физики и Визуала ---
+        const G = 60000;
+        const G_TEXT = 0.5;
+        const TEXT_DAMPING = 0.85;
+        const MIN_ATTRACTION_DIST_SQ = 100*100;
+        // Параметры волн
         const WAVE_SPEED = 90;
-        const MAX_STROKE_WIDTH = 6; // Можно чуть толще, т.к. размытие съедает толщину
+        const MAX_STROKE_WIDTH = 6;
         const WIDTH_DECAY_EXP = 0.5;
-        const WAVE_INTERVAL = 20;    // Можно чуть реже, размытие сгладит
-        const WAVE_COLOR = '#444';   // Можно чуть светлее, размытие затемняет
-        const MAX_WAVE_RADIUS = Math.max(window.innerWidth, window.innerHeight) * 0.5; // Можно снова увеличить радиус
-        const MIN_STROKE_WIDTH = 0.5; // Порог для размытых волн можно поднять
-        const INITIAL_OPACITY = 0.4; // Уменьшена начальная прозрачность
-        // ------------------------------------
+        const WAVE_INTERVAL = 20;
+        // Основной цвет волн (слой 1)
+        const WAVE_COLOR_L1 = 'rgba(13, 17, 23, 0.6)';
+        // Цвет волн для слоя 3 (светлый для blend mode)
+        const WAVE_COLOR_L3 = 'rgba(255, 255, 255, 0.15)';
+        const MAX_WAVE_RADIUS = Math.max(window.innerWidth, window.innerHeight) * 0.5;
+        const MIN_STROKE_WIDTH = 0.5;
+        const INITIAL_OPACITY = 0.8; // Для L1 волн
+        const INITIAL_OPACITY_L3 = 0.5; // Начальная прозрачность для L3 волн
 
-        document.addEventListener('mousemove', (event) => {
-            lastMouseX = event.clientX;
-            lastMouseY = event.clientY;
-            svgFollower.setAttribute('cx', lastMouseX);
-            svgFollower.setAttribute('cy', lastMouseY);
-        });
+        // --- Вспомогательная функция для порядка отрисовки ---
+        function setCursorRenderOrder(layer) {
+            const cursorElement = document.getElementById('cursorObjectVisual');
+             if (!cursorElement || !svgContainer) return;
 
-        function createWave() {
-            const wave = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            wave.setAttribute('cx', lastMouseX);
-            wave.setAttribute('cy', lastMouseY);
-            wave.setAttribute('r', 1);
-            wave.setAttribute('fill', 'none');
-            wave.setAttribute('stroke', WAVE_COLOR);
-            wave.setAttribute('stroke-width', MAX_STROKE_WIDTH);
-            wave.setAttribute('stroke-opacity', INITIAL_OPACITY);
-            wave.creationTime = performance.now();
+            if (layer === 3) {
+                 svgContainer.appendChild(cursorElement);
+            } else {
+                 const textGroupElement = document.getElementById('contentObjectsGroup');
+                 const staticElement = document.getElementById('staticObjectVisual');
+                 const referenceNode = textGroupElement || staticElement || null;
 
-            // Добавляем волну в группу <g>, к которой применен фильтр
-            waveGroup.appendChild(wave);
-            waves.push(wave);
+                 if (referenceNode) {
+                     svgContainer.insertBefore(cursorElement, referenceNode);
+                 } else {
+                      svgContainer.appendChild(cursorElement);
+                 }
+            }
         }
 
-        function animateWaves(currentTime) {
+        // --- Класс Массивного Объекта (Слой 1) ---
+         class MassiveObject {
+            constructor(visualElementId, x, y, mass = 1, color = '#fff', radius = 5, layer = 1) {
+                this.visualElement = document.getElementById(visualElementId);
+                this.id = visualElementId;
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.mass = mass;
+                this.color = color;
+                this.layer = layer;
+                this.isCursor = (visualElementId === 'cursorObjectVisual');
+                this.radius = radius;
+                this.lastWaveTime = 0;
+
+                this.visualElement.setAttribute('cx', this.x);
+                this.visualElement.setAttribute('cy', this.y);
+                this.visualElement.setAttribute('r', this.radius);
+                this.visualElement.setAttribute('fill', this.color);
+            }
+
+            updatePosition(dt) {
+                 if (this.isCursor) {
+                      return;
+                 };
+                 this.x += this.vx * dt;
+                 this.y += this.vy * dt;
+
+                 const restitution = 0.7;
+                 const minX = this.radius;
+                 const maxX = window.innerWidth - this.radius;
+                 const minY = this.radius;
+                 const maxY = window.innerHeight - this.radius;
+                 if (this.x < minX) { this.x = minX; this.vx *= -restitution; }
+                 else if (this.x > maxX) { this.x = maxX; this.vx *= -restitution; }
+                 if (this.y < minY) { this.y = minY; this.vy *= -restitution; }
+                 else if (this.y > maxY) { this.y = maxY; this.vy *= -restitution; }
+
+                 const DAMPING = 0.05;
+                 this.vx *= (1 - DAMPING);
+                 this.vy *= (1 - DAMPING);
+
+                 this.visualElement.setAttribute('cx', this.x);
+                 this.visualElement.setAttribute('cy', this.y);
+            }
+
+            moveTo(newX, newY) {
+                 if (this.isCursor) {
+                    this.x = newX;
+                    this.y = newY;
+                    this.visualElement.setAttribute('cx', this.x);
+                    this.visualElement.setAttribute('cy', this.y);
+                 }
+            }
+
+            applyForce(fx, fy, dt) {
+                  if (this.isCursor) return;
+                  const ax = fx / this.mass;
+                  const ay = fy / this.mass;
+                  this.vx += ax * dt;
+                  this.vy += ay * dt;
+            }
+
+             createWaveIfNeeded(currentTime) {
+                 const shouldGenerate = (this.layer === 1 && currentLayer === 1) || (this.isCursor && currentLayer === 3);
+                 if (shouldGenerate) {
+                     if (currentTime - this.lastWaveTime > WAVE_INTERVAL) {
+                         this.lastWaveTime = currentTime;
+                         const wave = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                         const waveColor = WAVE_COLOR_L3;
+                         const initialOpacity = INITIAL_OPACITY_L3;
+
+                         wave.setAttribute('cx', this.x);
+                         wave.setAttribute('cy', this.y);
+                         wave.setAttribute('r', 1);
+                         wave.setAttribute('fill', 'none');
+                         wave.setAttribute('stroke', waveColor);
+                         wave.setAttribute('stroke-width', MAX_STROKE_WIDTH);
+                         wave.setAttribute('stroke-opacity', initialOpacity);
+                         wave.creationTime = currentTime;
+                         waveGroup.appendChild(wave);
+                         waves.push(wave);
+                     }
+                 }
+             }
+
+            setShadow(hasShadow) {
+                 if (this.isCursor) {
+                     this.visualElement.classList.toggle('cursor-shadow', hasShadow);
+                 }
+            }
+        }
+
+        // --- Класс Объекта Контента (Слой 2) ---
+        class ContentObject {
+            constructor(textElement) {
+                this.element = textElement;
+                this.originX = parseFloat(textElement.getAttribute('x'));
+                this.originY = parseFloat(textElement.getAttribute('y'));
+                this.currentX = this.originX;
+                this.currentY = this.originY;
+                this.vx = 0;
+                this.vy = 0;
+                this.width = textElement.getBBox().width;
+            }
+
+            handleInteraction(cursorX, cursorY, cursorRadius, dt) {
+                const repulsionDistance = (this.width / 2) + cursorRadius + 5;
+                const repulsionStrength = 2.0;
+
+                const dx = this.currentX - cursorX;
+                const dy = this.currentY - cursorY;
+                const distSq = dx * dx + dy * dy;
+
+                let forceX = 0;
+                let forceY = 0;
+
+                if (distSq > 1 && distSq < repulsionDistance * repulsionDistance) {
+                    const dist = Math.sqrt(distSq);
+                    const pushForceMag = repulsionStrength * (repulsionDistance - dist);
+                    forceX += (dx / dist) * pushForceMag;
+                    forceY += (dy / dist) * pushForceMag;
+                }
+
+                const returnForceFactor = 0.02;
+                forceX += (this.originX - this.currentX) * returnForceFactor;
+                forceY += (this.originY - this.currentY) * returnForceFactor;
+
+                this.vx += forceX * dt;
+                this.vy += forceY * dt;
+
+                this.vx *= TEXT_DAMPING;
+                this.vy *= TEXT_DAMPING;
+
+                this.currentX += this.vx;
+                this.currentY += this.vy;
+
+                const translateX = this.currentX - this.originX;
+                const translateY = this.currentY - this.originY;
+                this.element.setAttribute('transform', `translate(${translateX}, ${translateY})`);
+            }
+
+            resetPosition() {
+                 this.currentX = this.originX;
+                 this.currentY = this.originY;
+                 this.vx = 0;
+                 this.vy = 0;
+                 this.element.setAttribute('transform', 'translate(0, 0)');
+            }
+
+            applyDistortion(apply, cursorX, cursorY) {
+                 if (!apply) {
+                     this.element.style.filter = 'none';
+                     return;
+                 }
+
+                 const distSq = (this.currentX - cursorX)**2 + (this.currentY - cursorY)**2;
+
+                 // Определяем пороги расстояния (в квадратах) для смены силы фильтра
+                 const strongThresholdSq = 100 * 100; // Радиус сильного искажения
+                 const mediumThresholdSq = 200 * 200; // Радиус среднего искажения
+                 // За этими пределами будет слабое искажение
+
+                 let filterId = '#dispFilterWeak'; // По умолчанию - слабый
+                 if (distSq < strongThresholdSq) {
+                     filterId = '#dispFilterStrong';
+                 } else if (distSq < mediumThresholdSq) {
+                     filterId = '#dispFilterMedium';
+                 }
+
+                 this.element.style.filter = `url(${filterId})`;
+            }
+        }
+
+        // --- Создание Объектов ---
+        const cursorObject = new MassiveObject('cursorObjectVisual', window.innerWidth / 2, window.innerHeight / 2, 1, '#fff', 5, 1);
+        const staticObject = new MassiveObject('staticObjectVisual', window.innerWidth / 3, window.innerHeight / 2, 100, '#0055cc', 7, 1);
+        const allMassiveObjects = [cursorObject, staticObject];
+
+        // Создаем текстовые объекты (слой 2)
+        const contentObjects = [];
+        const text = "CONTEXT";
+        const startX = window.innerWidth / 2;
+        const startY = window.innerHeight / 3;
+        const letterSpacing = 25;
+        text.split('').forEach((char, index) => {
+            const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            const posX = startX + (index - (text.length - 1) / 2) * letterSpacing;
+            textEl.setAttribute('x', posX);
+            textEl.setAttribute('y', startY);
+            textEl.setAttribute('class', 'content-object-text');
+            textEl.textContent = char;
+            contentObjectsGroup.appendChild(textEl);
+            contentObjects.push(new ContentObject(textEl));
+        });
+
+        // --- Обработчики ---
+        document.addEventListener('mousemove', (event) => {
+            cursorObject.moveTo(event.clientX, event.clientY);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (['1', '2', '3'].includes(event.key)) {
+                const newLayer = parseInt(event.key);
+                if (newLayer !== currentLayer) {
+                    const oldLayer = currentLayer;
+                    currentLayer = newLayer;
+                    layerIndicatorElement.textContent = `Layer: ${currentLayer}`;
+                    console.log(`Переключение на слой ${currentLayer}`);
+
+                    // Сброс состояний
+                    cursorObject.setShadow(false);
+                    contentObjects.forEach(obj => {
+                        obj.applyDistortion(false);
+                    });
+
+                    // Обновляем порядок отрисовки
+                    setCursorRenderOrder(currentLayer);
+                }
+            }
+        });
+
+        // --- Управление Анимацией --- 
+        function resetAll() {
+            console.log("Сброс состояния...");
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            isAnimationRunning = false;
+
+            // Удаляем волны
+            waves.forEach(wave => wave.remove());
+            waves.length = 0; // Очищаем массив
+
+            // Сброс синего шара
+            staticObject.x = window.innerWidth / 3;
+            staticObject.y = window.innerHeight / 2;
+            staticObject.vx = 0;
+            staticObject.vy = 0;
+            staticObject.visualElement.setAttribute('cx', staticObject.x);
+            staticObject.visualElement.setAttribute('cy', staticObject.y);
+
+            // Сброс текста
+            contentObjects.forEach(obj => obj.resetPosition());
+
+            // Сброс курсора
+            cursorObject.moveTo(window.innerWidth / 2, window.innerHeight / 2);
+            cursorObject.setShadow(false);
+            contentObjects.forEach(obj => obj.applyDistortion(false));
+
+            // Сброс слоя
+            currentLayer = 1;
+            layerIndicatorElement.textContent = `Layer: ${currentLayer}`;
+            setCursorRenderOrder(currentLayer);
+        }
+
+        function startRestartAnimation() {
+             console.log("Старт/Рестарт анимации...");
+             resetAll(); // Сначала все сбрасываем
+             isAnimationRunning = true;
+             lastTimestamp = performance.now(); // Сбросить время для dt
+             animationFrameId = requestAnimationFrame(animationLoop); // Запускаем цикл
+        }
+
+        // --- Главный Цикл Анимации ---
+        function animationLoop(currentTime) {
+            if (!isAnimationRunning) return; // Выходим, если анимация остановлена
+
+            const dt = (currentTime - lastTimestamp) / 1000 || 0.016;
+            lastTimestamp = currentTime;
+
+            contentObjects.forEach(obj => obj.applyDistortion(false));
+            cursorObject.setShadow(false);
+
+            switch (currentLayer) {
+                case 1:
+                    const dx = cursorObject.x - staticObject.x;
+                    const dy = cursorObject.y - staticObject.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq > 1) {
+                        const dist = Math.sqrt(distSq);
+                        const forceMag = (G * cursorObject.mass * staticObject.mass) / distSq;
+                        const forceX = (dx / dist) * forceMag;
+                        const forceY = (dy / dist) * forceMag;
+                         if (distSq < MIN_ATTRACTION_DIST_SQ * 2) {
+                            staticObject.applyForce(forceX, forceY, dt);
+                         }
+                    }
+                    break;
+                case 2:
+                    contentObjects.forEach(obj => {
+                         obj.handleInteraction(cursorObject.x, cursorObject.y, cursorObject.radius, dt);
+                    });
+                    cursorObject.setShadow(true);
+                    break;
+                case 3:
+                    contentObjects.forEach(obj => {
+                        obj.applyDistortion(true, cursorObject.x, cursorObject.y);
+                    });
+                    cursorObject.setShadow(true);
+                    break;
+            }
+
+            allMassiveObjects.forEach(obj => {
+                 obj.updatePosition(dt);
+                 obj.createWaveIfNeeded(currentTime);
+            });
+
             for (let i = waves.length - 1; i >= 0; i--) {
                 const wave = waves[i];
                 const ageSeconds = (currentTime - wave.creationTime) / 1000;
                 const radius = ageSeconds * WAVE_SPEED;
-
-                if (radius > MAX_WAVE_RADIUS) {
-                    wave.remove();
-                    waves.splice(i, 1);
-                    continue;
-                }
-
+                if (radius > MAX_WAVE_RADIUS) { wave.remove(); waves.splice(i, 1); continue; }
                 const strokeWidth = Math.max(MIN_STROKE_WIDTH, MAX_STROKE_WIDTH / Math.pow(1 + radius, WIDTH_DECAY_EXP));
-                const opacity = Math.max(0, INITIAL_OPACITY * Math.pow(1 - radius / MAX_WAVE_RADIUS, 1.5)); // Можно линейное или степенное затухание
-
-                if (strokeWidth <= MIN_STROKE_WIDTH || opacity <= 0.01) {
-                    wave.remove();
-                    waves.splice(i, 1);
-                } else {
-                    wave.setAttribute('r', radius);
-                    wave.setAttribute('stroke-width', strokeWidth);
-                    wave.setAttribute('stroke-opacity', opacity);
-                }
+                const startOpacity = INITIAL_OPACITY_L3;
+                const opacity = Math.max(0, startOpacity * Math.pow(1 - radius / MAX_WAVE_RADIUS, 1.5));
+                if (strokeWidth <= MIN_STROKE_WIDTH || opacity <= 0.01) { wave.remove(); waves.splice(i, 1); }
+                else { wave.setAttribute('r', radius); wave.setAttribute('stroke-width', strokeWidth); wave.setAttribute('stroke-opacity', opacity); }
             }
-            requestAnimationFrame(animateWaves);
+
+            animationFrameId = requestAnimationFrame(animationLoop); // Продолжаем цикл
         }
 
-        setInterval(createWave, WAVE_INTERVAL);
-        requestAnimationFrame(animateWaves);
+        setCursorRenderOrder(currentLayer);
+        staticObject.x = window.innerWidth / 3;
+        staticObject.y = window.innerHeight / 2;
+        staticObject.visualElement.setAttribute('cx', staticObject.x);
+        staticObject.visualElement.setAttribute('cy', staticObject.y);
+
+        // --- Назначаем обработчики для областей --- 
+        const startAreaElement = document.getElementById('startArea');
+        const resetAreaElement = document.getElementById('resetArea');
+
+        startAreaElement.addEventListener('mouseenter', startRestartAnimation);
+        resetAreaElement.addEventListener('mouseenter', resetAll);
+
+         // --- Начальный запуск --- 
+         startRestartAnimation();
     </script>
 </body>
 </html>
