@@ -9,9 +9,11 @@ on:
 jobs:
   update-svg:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     services:
       drawio:
-        image: jgraph/drawio 
+        image: jgraph/drawio
         ports:
           - 8080:8080
         volumes:
@@ -42,7 +44,6 @@ jobs:
             SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
             echo "Processing $DRAWIO_FILE to $SVG_FILE"
 
-            # Используем API draw.io через curl
             curl -X POST "http://localhost:8080/convert" \
               -F "file=@$DRAWIO_FILE" \
               -F "format=svg" \
@@ -53,24 +54,19 @@ jobs:
               exit 1
             fi
 
-            ls -la "$SVG_FILE"
-
-            # Обновляем README.md
+            # Обновление README.md
             SVG_NAME=$(basename "$SVG_FILE")
-            echo "Updating README.md with: $SVG_NAME"
-            if grep -q "\.svg" README.md; then
-              sed -i "s|\!\[.*\](.*\.svg)|\!\[${SVG_NAME%.*}\](${SVG_NAME})|g" README.md
-            else
-              echo "No SVG reference found in README.md"
-            fi
+            sed -i "s|!\[.*\]\(.*\.svg\)|![$SVG_NAME]|g" README.md
           done
 
       - name: Commit and push changes
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Используем стандартные настройки для GitHub Actions
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"  # Без префикса [[6]]
           git add *.svg README.md || echo "Nothing to add"
           git commit -m "Auto-update SVGs for modified .drawio files" || exit 0
-          git push
+          # Используем GITHUB_TOKEN для аутентификации
+          git push origin HEAD:main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
