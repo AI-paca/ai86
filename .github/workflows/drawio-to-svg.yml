@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Drawio headless
         run: |
@@ -18,26 +20,27 @@ jobs:
           sudo apt install -y xvfb
           sudo snap install drawio
 
-      - name: Get and process modified drawio files
-        id: process_drawio
-        run: |
-          # Get the list of modified .drawio files
-          MODIFIED_FILES=$(git diff --name-only HEAD~1 HEAD | grep '\.drawio$')
-          for DRAWIO_FILE in $MODIFIED_FILES; do
-            if [[ -n "$DRAWIO_FILE" ]]; then
-              SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
-              echo "Processing $DRAWIO_FILE to $SVG_FILE"
-              xvfb-run --auto-servernum drawio-desktop --headless --export --format svg --output "$SVG_FILE" "$DRAWIO_FILE"
-              ls -la "$SVG_FILE"
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v40
+        with:
+          files: '**.drawio'
 
-              # Update README.md with the new SVG file
-              SVG_NAME=$(basename "$SVG_FILE")
-              echo "Updating README.md with: $SVG_NAME"
-              if grep -q "\.svg" README.md; then
-                sed -i "s|\!\[.*\](.*\.svg)|\!\[${SVG_NAME%.*}\](${SVG_NAME})|g" README.md
-              else
-                echo "No SVG reference found in README.md"
-              fi
+      - name: Process modified drawio files
+        run: |
+          for DRAWIO_FILE in ${{ steps.changed-files.outputs.modified_files }}; do
+            SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
+            echo "Processing $DRAWIO_FILE to $SVG_FILE"
+            xvfb-run --auto-servernum drawio-desktop --headless --export --format svg --output "$SVG_FILE" "$DRAWIO_FILE"
+            ls -la "$SVG_FILE"
+
+            # Update README.md with the new SVG file
+            SVG_NAME=$(basename "$SVG_FILE")
+            echo "Updating README.md with: $SVG_NAME"
+            if grep -q "\.svg" README.md; then
+              sed -i "s|\!\[.*\](.*\.svg)|\!\[${SVG_NAME%.*}\](${SVG_NAME})|g" README.md
+            else
+              echo "No SVG reference found in README.md"
             fi
           done
 
