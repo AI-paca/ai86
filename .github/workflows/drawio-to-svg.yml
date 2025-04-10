@@ -22,7 +22,7 @@ jobs:
         id: drawio
         run: |
           DRAWIO_FILE=$(git diff-tree --no-commit-id --name-only -r HEAD | grep '\.drawio$' | head -1)
-          echo "drawio_file=${DRAWIO_FILE:-none}" >> $GITHUB_OUTPUT
+          echo "drawio_file=${DRAWIO_FILE}" >> $GITHUB_OUTPUT
           echo "svg_file=${DRAWIO_FILE%.drawio}.svg" >> $GITHUB_OUTPUT
 
       - name: Debug output
@@ -32,13 +32,13 @@ jobs:
           ls -la
 
       - name: Export Drawio to SVG
-        if: steps.drawio.outputs.drawio_file != 'none'
+        if: steps.drawio.outputs.drawio_file != ''
         run: |
           xvfb-run --auto-servernum drawio-desktop --headless --export --format svg --output ${{ steps.drawio.outputs.svg_file }} ${{ steps.drawio.outputs.drawio_file }}
           ls -la ${{ steps.drawio.outputs.svg_file }}
 
       - name: Update README.md
-        if: steps.drawio.outputs.drawio_file != 'none'
+        if: steps.drawio.outputs.drawio_file != ''
         run: |
           SVG_NAME=$(basename ${{ steps.drawio.outputs.svg_file }})
           echo "Updating README.md with: $SVG_NAME"
@@ -49,7 +49,7 @@ jobs:
           fi
 
       - name: Commit and push changes
-        if: steps.drawio.outputs.drawio_file != 'none'
+        if: steps.drawio.outputs.drawio_file != ''
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
