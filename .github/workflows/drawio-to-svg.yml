@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '**.drawio'
+
 jobs:
   update-svg:
     runs-on: ubuntu-latest
@@ -11,43 +12,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-
-      - name: Install drawio-export-cli
+      - name: Install Drawio headless
         run: |
-          npm install -g drawio-export-cli
-          drawio-export --version  # Проверка установки
+          sudo apt update
+          sudo apt install -y xvfb drawio
 
       - name: Get modified drawio file
         id: drawio
         run: |
-          # Ищем измененные/новые .drawio файлы
           DRAWIO_FILE=$(git diff --name-only --diff-filter=AM ${{ github.event.before }} ${{ github.sha }} | grep '\.drawio$' | head -1)
           echo "drawio_file=${DRAWIO_FILE:-none}" >> $GITHUB_OUTPUT
           echo "svg_file=${DRAWIO_FILE%.drawio}.svg" >> $GITHUB_OUTPUT
-        shell: bash
 
       - name: Debug output
         run: |
           echo "Modified drawio file: ${{ steps.drawio.outputs.drawio_file }}"
           echo "Target SVG file: ${{ steps.drawio.outputs.svg_file }}"
-          ls -la  # Проверяем содержимое директории
+          ls -la
 
-      - name: Generate SVG
+      - name: Export Drawio to SVG
         if: steps.drawio.outputs.drawio_file != 'none'
         run: |
-          drawio-export --format svg ${{ steps.drawio.outputs.drawio_file }}
-          ls -la ${{ steps.drawio.outputs.svg_file }}  # Проверяем созданный SVG
+          xvfb-run --auto-servernum drawio --headless --export --format svg --output ${{ steps.drawio.outputs.svg_file }} ${{ steps.drawio.outputs.drawio_file }}
+          ls -la ${{ steps.drawio.outputs.svg_file }}
 
       - name: Update README.md
         if: steps.drawio.outputs.drawio_file != 'none'
         run: |
           SVG_NAME=$(basename ${{ steps.drawio.outputs.svg_file }})
           echo "Updating README.md with: $SVG_NAME"
-          # Безопасная замена с проверкой существования
           if grep -q "\.svg" README.md; then
             sed -i "s|\!\[.*\](.*\.svg)|\!\[${SVG_NAME%.*}\](${SVG_NAME})|g" README.md
           else
