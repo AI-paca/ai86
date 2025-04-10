@@ -9,12 +9,26 @@ on:
 jobs:
   update-svg:
     runs-on: ubuntu-latest
-
+    services:
+      drawio:
+        image: jgraph/drawio 
+        ports:
+          - 8080:8080
+        volumes:
+          - ./:/data
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Wait for drawio service
+        run: |
+          while ! curl -s http://localhost:8080 > /dev/null; do
+            echo "Waiting for drawio service..."
+            sleep 2
+          done
+          echo "Drawio service is up!"
 
       - name: Get changed files
         id: changed-files
@@ -28,9 +42,11 @@ jobs:
             SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
             echo "Processing $DRAWIO_FILE to $SVG_FILE"
 
-            # Use drawio to convert the file
-            docker run --rm -v "$(pwd):/data" jgraph/drawio:stable \
-              /usr/share/drawio/drawio.sh --export "/data/$DRAWIO_FILE" --format svg --output "/data/$SVG_FILE"
+            # Используем API draw.io через curl
+            curl -X POST "http://localhost:8080/convert" \
+              -F "file=@$DRAWIO_FILE" \
+              -F "format=svg" \
+              -o "$SVG_FILE"
 
             if [ $? -ne 0 ]; then
               echo "Failed to convert $DRAWIO_FILE"
@@ -39,7 +55,7 @@ jobs:
 
             ls -la "$SVG_FILE"
 
-            # Update README.md with the new SVG file
+            # Обновляем README.md
             SVG_NAME=$(basename "$SVG_FILE")
             echo "Updating README.md with: $SVG_NAME"
             if grep -q "\.svg" README.md; then
