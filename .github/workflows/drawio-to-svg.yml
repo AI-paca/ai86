@@ -18,43 +18,34 @@ jobs:
           sudo apt install -y xvfb
           sudo snap install drawio
 
-      - name: Get modified drawio file
-        id: drawio
+      - name: Get and process modified drawio files
+        id: process_drawio
         run: |
-          DRAWIO_FILE=$(git diff-tree --no-commit-id --name-only -r HEAD | grep '\.drawio$' | head -1)
-          echo "drawio_file=${DRAWIO_FILE}" >> $GITHUB_OUTPUT
-          echo "svg_file=${DRAWIO_FILE%.drawio}.svg" >> $GITHUB_OUTPUT
+          MODIFIED_FILES="${{ github.event.head_commit.modified }}"
+          for DRAWIO_FILE in $MODIFIED_FILES; do
+            if [[ "$DRAWIO_FILE" == *.drawio ]]; then
+              SVG_FILE="${DRAWIO_FILE%.drawio}.svg"
+              echo "Processing $DRAWIO_FILE to $SVG_FILE"
+              xvfb-run --auto-servernum drawio-desktop --headless --export --format svg --output "$SVG_FILE" "$DRAWIO_FILE"
+              ls -la "$SVG_FILE"
 
-      - name: Debug output
-        run: |
-          echo "Modified drawio file: ${{ steps.drawio.outputs.drawio_file }}"
-          echo "Target SVG file: ${{ steps.drawio.outputs.svg_file }}"
-          ls -la
-
-      - name: Export Drawio to SVG
-        if: steps.drawio.outputs.drawio_file != ''
-        run: |
-          xvfb-run --auto-servernum drawio-desktop --headless --export --format svg --output ${{ steps.drawio.outputs.svg_file }} ${{ steps.drawio.outputs.drawio_file }}
-          ls -la ${{ steps.drawio.outputs.svg_file }}
-
-      - name: Update README.md
-        if: steps.drawio.outputs.drawio_file != ''
-        run: |
-          SVG_NAME=$(basename ${{ steps.drawio.outputs.svg_file }})
-          echo "Updating README.md with: $SVG_NAME"
-          if grep -q "\.svg" README.md; then
-            sed -i "s|\!\[.*\](.*\.svg)|\!\[${SVG_NAME%.*}\](${SVG_NAME})|g" README.md
-          else
-            echo "No SVG reference found in README.md"
-          fi
+              # Update README.md with the new SVG file
+              SVG_NAME=$(basename "$SVG_FILE")
+              echo "Updating README.md with: $SVG_NAME"
+              if grep -q "\.svg" README.md; then
+                sed -i "s|\!\[.*\](.*\.svg)|\!\[${SVG_NAME%.*}\](${SVG_NAME})|g" README.md
+              else
+                echo "No SVG reference found in README.md"
+              fi
+            fi
+          done
 
       - name: Commit and push changes
-        if: steps.drawio.outputs.drawio_file != ''
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ${{ steps.drawio.outputs.svg_file }} README.md || echo "Nothing to add"
-          git commit -m "Auto-update SVG for ${{ steps.drawio.outputs.drawio_file }}" || exit 0
+          git add *.svg README.md || echo "Nothing to add"
+          git commit -m "Auto-update SVGs for modified .drawio files" || exit 0
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
