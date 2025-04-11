@@ -18,30 +18,29 @@ jobs:
           - 8080:8080
         volumes:
           - ./:/data
-        options: --shm-size=2g --memory=4g
         env:
+          EXPORT_URL: http://localhost:8000/ 
           GITHUB_ACTIONS: "true"
           CI: "true"
+      image-export:
+        image: jgraph/export-server
+        ports:
+          - 8000:8000
+        volumes:
+          - ./fonts:/usr/share/fonts/drawio  
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Wait for drawio service
+      - name: Wait for services
         run: |
-          retry_count=0
-          max_retries=10
-          until curl -s http://localhost:8080 > /dev/null; do
-            echo "Waiting for Draw.io service..."
+          until curl -s http://localhost:8000 > /dev/null; do
+            echo "Waiting for export service..."
             sleep 5
-            retry_count=$((retry_count + 1))
-            if [ "$retry_count" -eq "$max_retries" ]; then
-              echo "Draw.io service failed to start"
-              exit 1
-            fi
           done
-          echo "Draw.io service is up!"
+          echo "Export service is up!"
 
       - name: Get changed files
         id: changed_files
@@ -51,16 +50,16 @@ jobs:
           else
             CHANGED_FILES=$(git ls-files)
           fi
-          echo "::set-output name=files::${CHANGED_FILES}"
+          echo "changed_files=${CHANGED_FILES}" >> $GITHUB_OUTPUT  # [[9]] Устраняем deprecated set-output
 
       - name: Filter .drawio files
         id: drawio_files
         run: |
-          DRAWIO_FILES=$(echo "${{ steps.changed_files.outputs.files }}" | grep -E '\.drawio$')
-          echo "::set-output name=files::${DRAWIO_FILES}"
+          DRAWIO_FILES=$(echo "${{ steps.changed_files.outputs.changed_files }}" | grep -E '\.drawio$')
+          echo "drawio_files=${DRAWIO_FILES}" >> $GITHUB_OUTPUT
 
       - name: Convert drawio to PNG
-        if: steps.drawio_files.outputs.files != ''
+        if: steps.drawio_files.outputs.drawio_files != ''
         run: |
           for DRAWIO_FILE in ${DRAWIO_FILES}; do
             PNG_FILE="${DRAWIO_FILE%.drawio}.png"
@@ -71,21 +70,13 @@ jobs:
               continue
             fi
 
-            # Исправленный curl-запрос
-            curl -X POST "http://localhost:8080/convert" \
-              -F "file=@\"$DRAWIO_FILE\"" \  # [[8]] Экранирование пути к файлу
-              -F "format=png" \               # [[7]] Восстановлен format
-              -F "scale=2" \                  # [[5]] Параметр scale работает
+            curl -X POST "http://localhost:8000/convert" \  # [[11]] Правильный порт
+              -F "file=@\"$DRAWIO_FILE\"" \  # Экранирование пути
+              -F "format=png" \
+              -F "scale=2" \
               -F "page=1" \
               -o "$PNG_FILE" \
               --fail
-
-            # Проверка HTTP-кода
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/convert")
-            if [ "$HTTP_CODE" -ne 200 ]; then
-              echo "HTTP Error: $HTTP_CODE"
-              exit 1
-            fi
 
             if [ ! -s "$PNG_FILE" ]; then
               echo "Ошибка конвертации: $DRAWIO_FILE"
@@ -96,10 +87,10 @@ jobs:
             sed -i "s|!\[.*\]\(.*\.\(svg\|png\)\)|![$PNG_NAME]($PNG_NAME)|g" README.md
           done
         env:
-          DRAWIO_FILES: ${{ steps.drawio_files.outputs.files }}
+          DRAWIO_FILES: ${{ steps.drawio_files.outputs.drawio_files }}
 
       - name: Commit and push changes
-        if: steps.drawio_files.outputs.files != ''
+        if: steps.drawio_files.outputs.drawio_files != ''
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
