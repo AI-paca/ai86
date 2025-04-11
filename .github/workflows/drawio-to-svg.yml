@@ -19,7 +19,7 @@ jobs:
         volumes:
           - ./:/data
         options: --shm-size=2g --memory=4g
-        environment:
+        env:
           GITHUB_ACTIONS: "true"
           CI: "true"
 
