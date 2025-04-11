@@ -66,21 +66,21 @@ jobs:
             PNG_FILE="${DRAWIO_FILE%.drawio}.png"
             echo "Processing $DRAWIO_FILE to $PNG_FILE"
 
-            # Добавлена проверка существования файла
             if [ ! -f "$DRAWIO_FILE" ]; then
               echo "File not found: $DRAWIO_FILE"
               continue
             fi
 
-            # Улучшенный curl-запрос
+            # Исправленный curl-запрос
             curl -X POST "http://localhost:8080/convert" \
-              -F "file=@$DRAWIO_FILE" \
-              -F "output=png" \  # [[1]] Используем output вместо format
-              -F "scale=2" \
+              -F "file=@\"$DRAWIO_FILE\"" \  # [[8]] Экранирование пути к файлу
+              -F "format=png" \               # [[7]] Восстановлен format
+              -F "scale=2" \                  # [[5]] Параметр scale работает
               -F "page=1" \
               -o "$PNG_FILE" \
               --fail
 
+            # Проверка HTTP-кода
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/convert")
             if [ "$HTTP_CODE" -ne 200 ]; then
               echo "HTTP Error: $HTTP_CODE"
