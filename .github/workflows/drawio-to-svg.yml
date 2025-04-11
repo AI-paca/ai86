@@ -28,15 +28,9 @@ jobs:
         run: |
           while ! curl -s http://localhost:8080 > /dev/null; do
             echo "Waiting for drawio service..."
-            sleep 2
+            sleep 5
           done
           echo "Drawio service is up!"
-
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v40
-        with:
-          files: '**.drawio'
 
       - name: Convert drawio to PNG
         run: |
@@ -44,13 +38,24 @@ jobs:
             PNG_FILE="${DRAWIO_FILE%.drawio}.png"
             echo "Processing $DRAWIO_FILE to $PNG_FILE"
 
-            # Исправленный curl
+            # Исправленный curl с параметрами scale и page
             curl -X POST "http://localhost:8080/convert" \
               -F "file=@$DRAWIO_FILE" \
               -F "format=png" \
-              -o "$PNG_FILE"
+              -F "scale=2" \  # [[5]] Увеличение масштаба для четкости
+              -F "page=1" \   # Указываем страницу (если диаграмма многостраничная)
+              -o "$PNG_FILE" \
+              --fail          # [[10]] Ошибка при HTTP-ошибке
 
-            if [ ! -s "$PNG_FILE" ]; then  # Проверка на пустой файл
+            # Проверка HTTP-кода
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/convert")
+            if [ "$HTTP_CODE" -ne 200 ]; then
+              echo "HTTP Error: $HTTP_CODE"
+              exit 1
+            fi
+
+            # Проверка размера файла
+            if [ ! -s "$PNG_FILE" ]; then
               echo "Ошибка конвертации: $DRAWIO_FILE"
               exit 1
             fi
