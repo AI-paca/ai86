@@ -18,20 +18,18 @@ jobs:
           - 8080:8080
         volumes:
           - ./:/data
-        # Добавлено: Увеличение времени ожидания
-        options: >-
-          --shm-size=2g --memory=4g
-          # [[3]] Увеличение ресурсов для корректного запуска
+        options: --shm-size=2g --memory=4g
+        environment:
+          GITHUB_ACTIONS: "true"
+          CI: "true"
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Wait for drawio service
         run: |
-          # [[3]] Повторная попытка подключения с увеличенным timeout
           retry_count=0
           max_retries=10
           until curl -s http://localhost:8080 > /dev/null; do
@@ -48,7 +46,6 @@ jobs:
       - name: Get changed files
         id: changed_files
         run: |
-          # [[3]] Обработка первого коммита
           if git rev-parse --verify HEAD~1 > /dev/null 2>&1; then
             CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
           else
@@ -67,9 +64,6 @@ jobs:
         run: |
           for DRAWIO_FILE in ${DRAWIO_FILES}; do
             PNG_FILE="${DRAWIO_FILE%.drawio}.png"
-            echo "Processing $DRAWIO_FILE to $PNG_FILE"
-
-            # [[3]] Добавлено: Проверка доступности сервиса перед запросом
             curl -X POST "http://localhost:8080/convert" \
               -F "file=@$DRAWIO_FILE" \
               -F "format=png" \
@@ -78,7 +72,6 @@ jobs:
               -o "$PNG_FILE" \
               --fail
 
-            # Проверка HTTP-кода
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/convert")
             if [ "$HTTP_CODE" -ne 200 ]; then
               echo "HTTP Error: $HTTP_CODE"
@@ -90,7 +83,6 @@ jobs:
               exit 1
             fi
 
-            # Обновление README.md
             PNG_NAME=$(basename "$PNG_FILE")
             sed -i "s|!\[.*\]\(.*\.\(svg\|png\)\)|![$PNG_NAME]($PNG_NAME)|g" README.md
           done
