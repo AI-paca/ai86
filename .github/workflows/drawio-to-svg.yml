@@ -27,7 +27,7 @@ jobs:
         ports:
           - 8000:8000
         volumes:
-          - ./fonts:/usr/share/fonts/drawio  
+          - ./fonts:/usr/share/fonts/drawio
 
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +50,7 @@ jobs:
           else
             CHANGED_FILES=$(git ls-files)
           fi
-          echo "changed_files=${CHANGED_FILES}" >> $GITHUB_OUTPUT  # [[9]] Устраняем deprecated set-output
+          echo "changed_files=${CHANGED_FILES}" >> $GITHUB_OUTPUT
 
       - name: Filter .drawio files
         id: drawio_files
@@ -70,8 +70,9 @@ jobs:
               continue
             fi
 
-            curl -X POST "http://localhost:8000/convert" \  # [[11]] Правильный порт
-              -F "file=@\"$DRAWIO_FILE\"" \  # Экранирование пути
+            # Исправленный curl-запрос
+            curl -X POST "http://localhost:8000/convert" \
+              -F "file=@${DRAWIO_FILE}" \ 
               -F "format=png" \
               -F "scale=2" \
               -F "page=1" \
