@@ -36,24 +36,28 @@ jobs:
       - name: Convert drawio to PNG
         if: steps.drawio_files.outputs.drawio_files != ''
         run: |
-          mkdir -p resources/diagrams # Create the subfolder
+          mkdir -p resources/diagrams
           for DRAWIO_FILE in ${DRAWIO_FILES}; do
             echo "Processing $DRAWIO_FILE"
-
             if [ ! -f "$DRAWIO_FILE" ]; then
               echo "File not found: $DRAWIO_FILE"
               continue
             fi
             
-            docker run -v ${PWD}:/data -v ${PWD}/resources/diagrams:/diagrams -it rlespinasse/drawio-export -f png -t -o /diagrams /data/"$DRAWIO_FILE" # Use the subfolder
+            docker run -v ${PWD}:/data -v ${PWD}/resources/diagrams:/diagrams rlespinasse/drawio-export -f png -t -o /diagrams /data/"$DRAWIO_FILE"
             
             if [ $? -ne 0 ]; then
               echo "Error converting: $DRAWIO_FILE"
               exit 1
             fi
-
+      
             PNG_FILE=$(basename "${DRAWIO_FILE%.drawio}.png")
-            sed -i "s|!\[.*\]\(.*\.\(svg\|png\)\)|![$PNG_FILE](resources/diagrams/$PNG_FILE)|g" README.md # Update the link
+            if [ ! -f "resources/diagrams/$PNG_FILE" ]; then
+              echo "PNG not generated: $PNG_FILE"
+              exit 1
+            fi
+      
+            sed -i "s|!\[.*\]\(.*\.\(svg\|png\)\)|![$PNG_FILE](resources/diagrams/$PNG_FILE)|g" README.md
           done
         env:
           DRAWIO_FILES: ${{ steps.drawio_files.outputs.drawio_files }}
