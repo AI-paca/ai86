@@ -21,16 +21,16 @@ jobs:
         id: changed_files
         run: |
           if git rev-parse --verify HEAD~1 > /dev/null 2>&1; then
-            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+            CHANGED_FILES=$(git diff --name-only --diff-filter=d HEAD~1 HEAD)  # Добавлен --diff-filter=d [[3]]
           else
             CHANGED_FILES=$(git ls-files)
           fi
           echo "changed_files=${CHANGED_FILES}" >> $GITHUB_OUTPUT
-
+            
       - name: Filter .drawio files
         id: drawio_files
         run: |
-          DRAWIO_FILES=$(echo "${{ steps.changed_files.outputs.changed_files }}" | grep -E '\.drawio$')
+          DRAWIO_FILES=$(echo "${{ steps.changed_files.outputs.changed_files }}" | grep -E '\.drawio$' | xargs -I {} sh -c '[ -f "{}" ] && echo {}')  # Проверка существования файла
           echo "drawio_files=${DRAWIO_FILES}" >> $GITHUB_OUTPUT
 
       - name: Convert drawio to PNG
