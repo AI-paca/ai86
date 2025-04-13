@@ -65,8 +65,8 @@
                         <Array as="points">
                             <mxPoint x="-400" y="270"/>
                             <mxPoint x="-400" y="370"/>
-                            <mxPoint x="-610" y="370"/>
-                            <mxPoint x="-610" y="305"/>
+                            <mxPoint x="-620" y="370"/>
+                            <mxPoint x="-620" y="305"/>
                         </Array>
                         <mxPoint x="-40" y="15" as="offset"/>
                     </mxGeometry>
