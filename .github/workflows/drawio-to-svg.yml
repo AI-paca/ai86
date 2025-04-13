@@ -44,22 +44,25 @@ jobs:
               continue
             fi
             
-            # Исправленный запуск Docker без --user [[6]]
+            # Исправленный параметр --remove-page-suffix [[1]]
             docker run --rm \
               -v ${PWD}:/workspace \
               -v ${PWD}/diagrams:/output \
               rlespinasse/drawio-export \
-              -f png --no-page-suffix -t -o /output /workspace/"$DRAWIO_FILE"
+              -f png --remove-page-suffix -t -o /output /workspace/"$DRAWIO_FILE"
             
-            BASENAME=$(basename "${DRAWIO_FILE%.drawio}")
-            PNG_FILE="${BASENAME}.png"
-            
-            if [ ! -f "diagrams/$PNG_FILE" ]; then
-              echo "Error: diagrams/$PNG_FILE not generated" >&2
+            # Автоматическое определение имени файла [[2]]
+            GENERATED_FILES=$(ls diagrams/*.png 2>/dev/null | grep -E "${DRAWIO_FILE%.drawio}-[0-9]+.png|${DRAWIO_FILE%.drawio}.png")
+            if [ -z "$GENERATED_FILES" ]; then
+              echo "Error: No PNG files generated for $DRAWIO_FILE" >&2
               exit 1
             fi
 
-            sed -i "s|!\[.*\](.*\.\(svg\|png\))|![$PNG_FILE](diagrams/$PNG_FILE)|g" README.md
+            # Обновление README.md для всех сгенерированных файлов
+            for PNG_FILE in $GENERATED_FILES; do
+              BASENAME=$(basename "$PNG_FILE")
+              sed -i "s|!\[.*\](.*\.\(svg\|png\))|![$BASENAME](${PNG_FILE})|g" README.md
+            done
           done
         env:
           DRAWIO_FILES: ${{ steps.drawio_files.outputs.drawio_files }}
@@ -69,7 +72,7 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add diagrams/*.png README.md || echo "Nothing to add"  # Исправлен путь [[1]]
+          git add diagrams/*.png README.md || echo "Nothing to add"
           git commit -m "Auto-update PNGs for modified .drawio files" || exit 0
           git push
         env:
