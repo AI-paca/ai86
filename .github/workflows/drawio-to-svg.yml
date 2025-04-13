@@ -21,7 +21,7 @@ jobs:
         id: changed_files
         run: |
           if git rev-parse --verify HEAD~1 > /dev/null 2>&1; then
-            CHANGED_FILES=$(git diff --name-only --diff-filter=d HEAD~1 HEAD)  # Добавлен --diff-filter=d [[3]]
+            CHANGED_FILES=$(git diff --name-only --diff-filter=d HEAD~1 HEAD)
           else
             CHANGED_FILES=$(git ls-files)
           fi
@@ -30,7 +30,7 @@ jobs:
       - name: Filter .drawio files
         id: drawio_files
         run: |
-          DRAWIO_FILES=$(echo "${{ steps.changed_files.outputs.changed_files }}" | grep -E '\.drawio$' | xargs -I {} sh -c '[ -f "{}" ] && echo {}')  # Проверка существования файла
+          DRAWIO_FILES=$(echo "${{ steps.changed_files.outputs.changed_files }}" | grep -E '\.drawio$' | xargs -I {} sh -c '[ -f "{}" ] && echo {}')
           echo "drawio_files=${DRAWIO_FILES}" >> $GITHUB_OUTPUT
 
       - name: Convert drawio to PNG
@@ -44,11 +44,19 @@ jobs:
               continue
             fi
             
-            docker run --rm -v ${PWD}:/data -v ${PWD}/resources/diagrams:/diagrams rlespinasse/drawio-export -f png -t -o /diagrams /data/"$DRAWIO_FILE"
-            #wait for the image to be generated
-            sleep 90
+            # Исправлены пути монтирования и сохранения
+            docker run --rm \
+              -v ${PWD}:/workspace \
+              -v ${PWD}/resources/diagrams:/output \
+              rlespinasse/drawio-export \
+              -f png -t -o /output /workspace/"$DRAWIO_FILE"
             
             PNG_FILE=$(basename "${DRAWIO_FILE%.drawio}.png")
+            
+            # Отладочный вывод содержимого папки
+            echo "Checking generated files in resources/diagrams:"
+            ls -l resources/diagrams
+            
             if [ ! -f "resources/diagrams/$PNG_FILE" ]; then
               echo "PNG not generated: $PNG_FILE"
               exit 1
@@ -64,7 +72,7 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add resources/diagrams/*.png README.md || echo "Nothing to add" # Add from the subfolder
+          git add resources/diagrams/*.png README.md || echo "Nothing to add"
           git commit -m "Auto-update PNGs for modified .drawio files" || exit 0
           git push
         env:
