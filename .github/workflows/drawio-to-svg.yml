@@ -44,24 +44,32 @@ jobs:
               continue
             fi
             
-            # Исправленный параметр --remove-page-suffix [[1]]
             docker run --rm \
               -v ${PWD}:/workspace \
               -v ${PWD}/diagrams:/output \
               rlespinasse/drawio-export \
               -f png --remove-page-suffix -t -o /output /workspace/"$DRAWIO_FILE"
             
-            # Автоматическое определение имени файла [[2]]
             GENERATED_FILES=$(ls diagrams/*.png 2>/dev/null | grep -E "${DRAWIO_FILE%.drawio}-[0-9]+.png|${DRAWIO_FILE%.drawio}.png")
             if [ -z "$GENERATED_FILES" ]; then
               echo "Error: No PNG files generated for $DRAWIO_FILE" >&2
               exit 1
             fi
 
-            # Обновление README.md для всех сгенерированных файлов
-            for PNG_FILE in $GENERATED_FILES; do
-              BASENAME=$(basename "$PNG_FILE")
-              sed -i "s|!\[.*\](.*\.\(svg\|png\))|![$BASENAME](${PNG_FILE})|g" README.md
+            # Обновление README.md
+            for PNG_PATH in $GENERATED_FILES; do
+              PNG_FILE=$(basename "$PNG_PATH")
+              RELATIVE_PATH="diagrams/$PNG_FILE"
+              
+              # Проверка существования ссылки
+              if grep -q "$RELATIVE_PATH" README.md; then
+                echo "Updating existing link for $RELATIVE_PATH"
+                sed -i "s|!\[.*\](\(.*\)|![$PNG_FILE]($RELATIVE_PATH)|g" README.md
+              else
+                echo "Adding new image link for $RELATIVE_PATH"
+                echo "" >> README.md  # Добавление пустой строки перед новым изображением
+                echo "![${PNG_FILE}](${RELATIVE_PATH})" >> README.md
+              fi
             done
           done
         env:
@@ -72,8 +80,8 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add diagrams/*.png README.md || echo "Nothing to add"
-          git commit -m "Auto-update PNGs for modified .drawio files" || exit 0
+          git add diagrams/*.png README.md
+          git commit -m "Auto-update PNGs and documentation" || exit 0
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
