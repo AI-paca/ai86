@@ -36,7 +36,7 @@ jobs:
       - name: Convert drawio to PNG
         if: steps.drawio_files.outputs.drawio_files != ''
         run: |
-          mkdir -p resources/diagrams
+          mkdir -p diagrams  # Создание папки diagrams вместо resources/diagrams
           for DRAWIO_FILE in ${DRAWIO_FILES}; do
             echo "Processing $DRAWIO_FILE"
             if [ ! -f "$DRAWIO_FILE" ]; then
@@ -46,23 +46,23 @@ jobs:
             
             # Исправлены пути монтирования и сохранения
             docker run --rm \
+              --user $(id -u):$(id -g) \  # Фикс прав доступа [[6]]
               -v ${PWD}:/workspace \
-              -v ${PWD}/resources/diagrams:/output \
+              -v ${PWD}/diagrams:/output \  # Сохранение в ./diagrams
               rlespinasse/drawio-export \
-              -f png -t -o /output /workspace/"$DRAWIO_FILE"
+              -f png --no-page-suffix -t -o /output /workspace/"$DRAWIO_FILE"
             
-            PNG_FILE=$(basename "${DRAWIO_FILE%.drawio}.png")
+            BASENAME=$(basename "${DRAWIO_FILE%.drawio}")
+            PNG_FILE="${BASENAME}.png"
             
-            # Отладочный вывод содержимого папки
-            echo "Checking generated files in resources/diagrams:"
-            ls -l resources/diagrams
-            
-            if [ ! -f "resources/diagrams/$PNG_FILE" ]; then
-              echo "PNG not generated: $PNG_FILE"
+            # Проверка наличия файла
+            if [ ! -f "diagrams/$PNG_FILE" ]; then
+              echo "Error: diagrams/$PNG_FILE not generated" >&2
               exit 1
             fi
 
-            sed -i "s|!\[.*\]\(.*\.\(svg\|png\)\)|![$PNG_FILE](resources/diagrams/$PNG_FILE)|g" README.md
+            # Обновление README.md с новым путём
+            sed -i "s|!\[.*\](.*\.\(svg\|png\))|![$PNG_FILE](diagrams/$PNG_FILE)|g" README.md
           done
         env:
           DRAWIO_FILES: ${{ steps.drawio_files.outputs.drawio_files }}
@@ -72,7 +72,7 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add resources/diagrams/*.png README.md || echo "Nothing to add"
+          git add diagrams/*.png README.md || echo "Nothing to add"  # Исправлен путь [[1]]
           git commit -m "Auto-update PNGs for modified .drawio files" || exit 0
           git push
         env:
