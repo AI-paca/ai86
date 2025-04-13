@@ -36,7 +36,7 @@ jobs:
       - name: Convert drawio to PNG
         if: steps.drawio_files.outputs.drawio_files != ''
         run: |
-          mkdir -p diagrams  # Создание папки diagrams вместо resources/diagrams
+          mkdir -p diagrams
           for DRAWIO_FILE in ${DRAWIO_FILES}; do
             echo "Processing $DRAWIO_FILE"
             if [ ! -f "$DRAWIO_FILE" ]; then
@@ -44,24 +44,21 @@ jobs:
               continue
             fi
             
-            # Исправлены пути монтирования и сохранения
+            # Исправленный запуск Docker без --user [[6]]
             docker run --rm \
-              --user $(id -u):$(id -g) \  # Фикс прав доступа [[6]]
               -v ${PWD}:/workspace \
-              -v ${PWD}/diagrams:/output \  # Сохранение в ./diagrams
+              -v ${PWD}/diagrams:/output \
               rlespinasse/drawio-export \
               -f png --no-page-suffix -t -o /output /workspace/"$DRAWIO_FILE"
             
             BASENAME=$(basename "${DRAWIO_FILE%.drawio}")
             PNG_FILE="${BASENAME}.png"
             
-            # Проверка наличия файла
             if [ ! -f "diagrams/$PNG_FILE" ]; then
               echo "Error: diagrams/$PNG_FILE not generated" >&2
               exit 1
             fi
 
-            # Обновление README.md с новым путём
             sed -i "s|!\[.*\](.*\.\(svg\|png\))|![$PNG_FILE](diagrams/$PNG_FILE)|g" README.md
           done
         env:
