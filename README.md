@@ -3,8 +3,6 @@ LLM db with normal search at the request of my friends (with the ability to edit
 
 ![architecture.png](diagrams/architecture.png)
 
-This is a test of the script that automatically updates the readme when drawio is changed.
-
-![architecture.png](diagrams/architecture.png)
+Database architecture (presumptive)
 
 ![tabls.png](diagrams/tabls.png)
