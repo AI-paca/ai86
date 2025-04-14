@@ -13,26 +13,32 @@ jobs:
       contents: write
 
     steps:
+      # Checkout the repository with full history
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Get changed files
       - name: Get changed files
         id: changed_files
         run: |
           if git rev-parse --verify HEAD~1 > /dev/null 2>&1; then
-            CHANGED_FILES=$(git diff --name-only --diff-filter=d HEAD~1 HEAD)
+            CHANGED_FILES=$(git diff --name-only --diff-filter=d HEAD~1 HEAD | tr '\n' ' ' | sed 's/ $//')
           else
-            CHANGED_FILES=$(git ls-files)
+            CHANGED_FILES=$(git ls-files | tr '\n' ' ' | sed 's/ $//')
           fi
+          echo "Debug: CHANGED_FILES='${CHANGED_FILES}'"
           echo "changed_files=${CHANGED_FILES}" >> $GITHUB_OUTPUT
-            
+
+      # Filter .drawio files
       - name: Filter .drawio files
         id: drawio_files
         run: |
           DRAWIO_FILES=$(echo "${{ steps.changed_files.outputs.changed_files }}" | grep -E '\.drawio$' | xargs -I {} sh -c '[ -f "{}" ] && echo {}')
+          echo "Debug: DRAWIO_FILES='${DRAWIO_FILES}'"
           echo "drawio_files=${DRAWIO_FILES}" >> $GITHUB_OUTPUT
 
+      # Convert .drawio files to PNG
       - name: Convert drawio to PNG
         if: steps.drawio_files.outputs.drawio_files != ''
         run: |
@@ -44,37 +50,39 @@ jobs:
               continue
             fi
             
+            # Run Docker container to convert .drawio to PNG
             docker run --rm \
               -v ${PWD}:/workspace \
               -v ${PWD}/diagrams:/output \
               rlespinasse/drawio-export \
               -f png --remove-page-suffix -t -o /output /workspace/"$DRAWIO_FILE"
             
+            # Check if PNG files were generated
             GENERATED_FILES=$(ls diagrams/*.png 2>/dev/null | grep -E "${DRAWIO_FILE%.drawio}-[0-9]+.png|${DRAWIO_FILE%.drawio}.png")
             if [ -z "$GENERATED_FILES" ]; then
               echo "Error: No PNG files generated for $DRAWIO_FILE" >&2
               exit 1
             fi
 
-            # Обновление README.md
+            # Update README.md with new image links
             for PNG_PATH in $GENERATED_FILES; do
               PNG_FILE=$(basename "$PNG_PATH")
               RELATIVE_PATH="diagrams/$PNG_FILE"
               
-              # Проверка существования ссылки
-              if grep -q "$RELATIVE_PATH" README.md; then
-                echo "Updating existing link for $RELATIVE_PATH"
-                sed -i "s|!\[.*\](\(.*\)|![$PNG_FILE]($RELATIVE_PATH)|g" README.md
-              else
+              # Check if the link already exists in README.md
+              if ! grep -q "$RELATIVE_PATH" README.md; then
                 echo "Adding new image link for $RELATIVE_PATH"
-                echo "" >> README.md  # Добавление пустой строки перед новым изображением
+                echo "" >> README.md  # Add an empty line before the new image
                 echo "![${PNG_FILE}](${RELATIVE_PATH})" >> README.md
+              else
+                echo "Link for $RELATIVE_PATH already exists in README.md"
               fi
             done
           done
         env:
           DRAWIO_FILES: ${{ steps.drawio_files.outputs.drawio_files }}
 
+      # Commit and push changes
       - name: Commit and push changes
         if: steps.drawio_files.outputs.drawio_files != ''
         run: |
