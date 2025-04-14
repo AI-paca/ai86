@@ -34,7 +34,7 @@ jobs:
       - name: Filter .drawio files
         id: drawio_files
         run: |
-          DRAWIO_FILES=$(echo "${{ steps.changed_files.outputs.changed_files }}" | tr ',' '\n' | grep -E '\.drawio$' || true)
+          DRAWIO_FILES=$(echo "${{ steps.changed_files.outputs.changed_files }}" | tr ',' '\n' | grep -E '\.drawio$' | tr '\n' ',' | sed 's/,$//' || true)
           echo "Debug: DRAWIO_FILES='${DRAWIO_FILES}'"
           echo "drawio_files=${DRAWIO_FILES}" >> $GITHUB_OUTPUT
 
