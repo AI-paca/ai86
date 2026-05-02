@@ -1,8 +1,4 @@
 # ai86
-LLM db with normal search at the request of my friends (with the ability to edit anonymously)
+layer selection - keys 1,2,3
 
-![architecture.png](diagrams/architecture.png)
-
-Database architecture (presumptive)
-
-![tabls.png](diagrams/tabls.png)
+https://ai-paca.github.io/ai86/
